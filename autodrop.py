@@ -129,11 +129,6 @@ def upload_media(file_group):
         return False
 
 
-def cleanup_mediapack(file_group):
-    """ Clean up staging directory on upload completion or failure. """
-    pass
-
-
 def cli_args():
     parser = argparse.ArgumentParser(description='File to prepare and send.')
     parser.add_argument('filename', type=str, help='the filename and path to send')
@@ -163,9 +158,5 @@ def media_journey(file_group):
 if __name__ == '__main__':
     args = cli_args()
     media_group_name = args.filename
-    # test_file = FilePack('D:/PyCharmProjects/test-things/test/media_pack')
     media = FilePack(media_group_name)
     media_journey(media)
-    # extract_media(media)
-    # test_file.check_tarball()
-    # media_journey(media)
