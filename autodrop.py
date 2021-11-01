@@ -6,6 +6,7 @@ __author__ = "manticode"
 __version__ = "0.1.2"
 
 import argparse
+import configparser
 import os
 import subprocess
 import tarfile
@@ -23,6 +24,46 @@ RSYNC_DST_USER = 'serviio'
 RSYNC_DST_HOST = 'my.media.server.ip'
 RSYNC_DST_PATH = '/mnt/media/incoming/'
 RSYNC_OPTIONS = f'-az -e "ssh -p 9022 -i {SSH_KEYFILE}"'
+
+
+def import_config(**kwargs):
+    def set_config_vars():
+        print('set config vars')
+        global MEDIA_EXTENSIONS
+        global ARCHIVE_EXTENSIONS
+        global SAMPLE_REGEX
+        global STAGING_DIR
+        global SSH_KEYFILE
+        global RSYNC_PATH
+        global RSYNC_DST_USER
+        global RSYNC_DST_HOST
+        global RSYNC_DST_PATH
+        global RSYNC_OPTIONS
+        MEDIA_EXTENSIONS = config['autodrop']['MEDIA_EXTENSIONS']
+        ARCHIVE_EXTENSIONS = config['autodrop']['ARCHIVE_EXTENSIONS']
+        SAMPLE_REGEX = config['autodrop']['SAMPLE_REGEX']
+        STAGING_DIR = config['autodrop']['STAGING_DIR']
+        SSH_KEYFILE = config['autodrop']['SSH_KEYFILE']
+        RSYNC_PATH = config['autodrop']['RSYNC_PATH']
+        RSYNC_DST_USER = config['autodrop']['RSYNC_DST_USER']
+        RSYNC_DST_HOST = config['autodrop']['RSYNC_DST_HOST']
+        RSYNC_DST_PATH = config['autodrop']['RSYNC_DST_PATH']
+        RSYNC_OPTIONS = config['autodrop']['RSYNC_OPTIONS']
+
+    config = configparser.ConfigParser()
+    if 'config_file' in kwargs.keys():
+        print('config file in kwargs')
+        if config.read(kwargs['config_file']):
+            print(f'config file received: {kwargs["config_file"]}')
+            set_config_vars()
+        else:
+            print('unable to read config')
+    else:
+        try:
+            config.read(Path.home() / '/.autodrop.conf')
+            set_config_vars()
+        except configparser.Error as e:
+            print(f'error due to {e}')
 
 
 class FilePack:
@@ -132,6 +173,7 @@ def upload_media(file_group):
 def cli_args():
     parser = argparse.ArgumentParser(description='File to prepare and send.')
     parser.add_argument('filename', type=str, help='the filename and path to send')
+    parser.add_argument('--config', type=str, help='path to configuration file')
     return parser.parse_args()
 
 
@@ -157,6 +199,7 @@ def media_journey(file_group):
 
 if __name__ == '__main__':
     args = cli_args()
+    import_config(config_file=args.config)
     media_group_name = args.filename
     media = FilePack(media_group_name)
     media_journey(media)
