@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
-"""" Script to automatically upload file on download completion. """
+"""" Script to automatically upload file on download completion. UPPLOAD """
 
 __author__ = "manticode"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 import argparse
 import configparser
 import os
+import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 import rarfile
@@ -71,15 +73,33 @@ class FilePack:
 
     def __init__(self, filepath):
         self.filename = filepath
-        self.media_filename = None
+        self.singleton = self._check_singleton()
+        self._check_media()
         self.media_archive = None
         self.sample_filename = filepath + 'sample'
-        self.singleton = self._check_singleton()
         self.is_tarred = self._check_tarball()
         self.has_sample = self._check_sample()
 
     def __call__(self):
         return self.filename
+
+    def _check_media(self):
+        if self.singleton is False:
+            media_candidates = []
+            for file in os.listdir(self.filename):
+                file_extension = file.split('.')[-1]
+                if file_extension in MEDIA_EXTENSIONS:
+                    media_candidates.append(file)
+                else:
+                    pass
+            if len(media_candidates) == 1:
+                self.ready_media = Path(self.filename) / media_candidates.pop()
+            elif len(media_candidates) > 1:
+                for file in media_candidates:
+                    if re.match(SAMPLE_REGEX, file):
+                        pass
+                    else:
+                        self.ready_media = Path(self.filename) / file
 
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
@@ -126,7 +146,7 @@ def extract_media(media_archive_file, temp_dir):
             try:
                 rar_handle.extract(file, path=temp_dir.name)
                 if rar_handle.strerror() is None:
-                    media_archive_file.media_filename = str(Path(temp_dir.name) / file.filename)
+                    media_archive_file.ready_media = str(Path(temp_dir.name) / file.filename)
                 elif rar_handle.strerror() is not None:
                     print(f'strerror: {rar_handle.strerror()}')
             except PermissionError:
@@ -189,12 +209,17 @@ def media_journey(file_group):
         print('need to unpack...')
         temp_dir = tempfile.TemporaryDirectory(dir=STAGING_DIR)
         extract_media(file_group, temp_dir)
-        if upload_media(file_group.media_filename):
+        if upload_media(file_group.ready_media):
             print('successfully uploaded media')
         else:
             print('media did not upload. Cleaning up.')
-            # TODO add cleanup method
+            sys.exit()
         pass
+    elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
+        if upload_media(file_group.ready_media):
+            print('media uploaded')
+        else:
+            print('media not uploaded.')
 
 
 if __name__ == '__main__':
