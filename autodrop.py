@@ -157,7 +157,6 @@ def extract_media(media_archive_file, temp_dir):
                 print('unable to extract to specified directory')
         else:
             print('no mkv here')
-    print('extract func complete')
 
 
 def extract_media_tar(media_archive_file):
@@ -179,8 +178,6 @@ def upload_media(file_group):
     upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
     rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} {upload_file_string} ' \
                  f'{RSYNC_DST_USER}@{RSYNC_DST_HOST}:"{RSYNC_DST_PATH}"'
-    print(f'going to upload: {type(upload_file_string)} {upload_file_string}')
-    print(f'rysnc string: {rsync_exec}')
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
         if rsync_ran.returncode == 0:
@@ -239,7 +236,6 @@ def get_directory_name(media_pack):
 
 if __name__ == '__main__':
     args = cli_args()
-    print(f'args config: {args.config}')
     import_config(config_file=args.config)
     media_group_name = args.filename
     media = FilePack(media_group_name)
