@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-"""" Script to automatically upload file on download completion. UPPLOAD """
+"""" Script to automatically upload file to media server on download completion. """
 
 __author__ = "manticode"
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 import argparse
 import configparser
@@ -87,6 +87,7 @@ class FilePack:
         return self.filename
 
     def _check_media(self):
+        self.ready_media = []
         if self.singleton is False:
             media_candidates = []
             for file in os.listdir(self.filename):
@@ -96,13 +97,13 @@ class FilePack:
                 else:
                     pass
             if len(media_candidates) == 1:
-                self.ready_media = Path(self.filename) / media_candidates.pop()
+                self.ready_media.append(Path(self.filename) / media_candidates.pop())
             elif len(media_candidates) > 1:
                 for file in media_candidates:
                     if re.match(SAMPLE_REGEX, file):
                         pass
                     else:
-                        self.ready_media = Path(self.filename) / file
+                        self.ready_media.append(Path(self.filename) / file)
 
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
@@ -173,9 +174,13 @@ def extract_media_tar(media_archive_file):
 
 
 def upload_media(file_group):
-    """ To upload file to endpoint using rsync. Ensure lockfile to avoid overrunning. """
-    rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} "{file_group}" ' \
+    """ To upload file to endpoint using rsync. """
+    # TODO complete function to obtain destination directory as this currently dumps all files in destination root
+    upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
+    rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} {upload_file_string} ' \
                  f'{RSYNC_DST_USER}@{RSYNC_DST_HOST}:"{RSYNC_DST_PATH}"'
+    print(f'going to upload: {type(upload_file_string)} {upload_file_string}')
+    print(f'rysnc string: {rsync_exec}')
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
         if rsync_ran.returncode == 0:
@@ -197,6 +202,8 @@ def cli_args():
     parser = argparse.ArgumentParser(description='File to prepare and send.')
     parser.add_argument('filename', type=str, help='the filename and path to send')
     parser.add_argument('--config', type=str, help='path to configuration file')
+    parser.add_argument('--dry-run', '-n', action='store_const', const='DRY_RUN', help='dry run - does nothing at the '
+                                                                                       'moment')
     return parser.parse_args()
 
 
@@ -223,6 +230,11 @@ def media_journey(file_group):
             print('media uploaded')
         else:
             print('media not uploaded.')
+
+
+def get_directory_name(media_pack):
+    directory_name = re.match('(^.*[Ss]eason [0-9]+)', media_pack.parent.name)
+    return directory_name.group(1)
 
 
 if __name__ == '__main__':
