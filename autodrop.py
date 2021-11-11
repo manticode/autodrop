@@ -54,18 +54,21 @@ def import_config(**kwargs):
 
     config = configparser.ConfigParser()
     if 'config_file' in kwargs.keys():
-        print('config file in kwargs')
-        if config.read(kwargs['config_file']):
-            print(f'config file received: {kwargs["config_file"]}')
-            set_config_vars()
+        if kwargs['config_file'] is not None:
+            try:
+                if config.read(kwargs['config_file']) is not None:
+                    set_config_vars()
+                else:
+                    print('unable to read config')
+                    sys.exit()
+            except TypeError:
+                sys.exit()
         else:
-            print('unable to read config')
-    else:
-        try:
-            config.read(Path.home() / '/.autodrop.conf')
-            set_config_vars()
-        except configparser.Error as e:
-            print(f'error due to {e}')
+            try:
+                config.read(Path.home() / '.autodrop.conf')
+                set_config_vars()
+            except configparser.Error as e:
+                print(f'error due to {e}')
 
 
 class FilePack:
@@ -224,6 +227,7 @@ def media_journey(file_group):
 
 if __name__ == '__main__':
     args = cli_args()
+    print(f'args config: {args.config}')
     import_config(config_file=args.config)
     media_group_name = args.filename
     media = FilePack(media_group_name)
