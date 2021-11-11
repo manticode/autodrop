@@ -150,7 +150,7 @@ def extract_media(media_archive_file, temp_dir):
             try:
                 rar_handle.extract(file, path=temp_dir.name)
                 if rar_handle.strerror() is None:
-                    media_archive_file.ready_media = str(Path(temp_dir.name) / file.filename)
+                    media_archive_file.ready_media.append(Path(temp_dir.name) / file.filename)
                 elif rar_handle.strerror() is not None:
                     print(f'strerror: {rar_handle.strerror()}')
             except PermissionError:
