@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-# import rarfile
+import rarfile
 from pathlib import Path
 
 MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
