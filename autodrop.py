@@ -100,7 +100,8 @@ class FilePack:
                 self.ready_media.append(Path(self.filename) / media_candidates.pop())
             elif len(media_candidates) > 1:
                 for file in media_candidates:
-                    if re.match(SAMPLE_REGEX, file):
+                    # TODO this needs to be a bit smarter...
+                    if re.search(SAMPLE_REGEX, file):
                         pass
                     else:
                         self.ready_media.append(Path(self.filename) / file)
