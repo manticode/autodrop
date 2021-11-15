@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-"""" Script to automatically upload file on download completion. UPPLOAD """
+"""" Script to automatically upload file to media server on download completion. """
 
 __author__ = "manticode"
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 import argparse
 import configparser
@@ -54,18 +54,21 @@ def import_config(**kwargs):
 
     config = configparser.ConfigParser()
     if 'config_file' in kwargs.keys():
-        print('config file in kwargs')
-        if config.read(kwargs['config_file']):
-            print(f'config file received: {kwargs["config_file"]}')
-            set_config_vars()
+        if kwargs['config_file'] is not None:
+            try:
+                if config.read(kwargs['config_file']) is not None:
+                    set_config_vars()
+                else:
+                    print('unable to read config')
+                    sys.exit()
+            except TypeError:
+                sys.exit()
         else:
-            print('unable to read config')
-    else:
-        try:
-            config.read(Path.home() / '/.autodrop.conf')
-            set_config_vars()
-        except configparser.Error as e:
-            print(f'error due to {e}')
+            try:
+                config.read(Path.home() / '.autodrop.conf')
+                set_config_vars()
+            except configparser.Error as e:
+                print(f'error due to {e}')
 
 
 class FilePack:
@@ -84,6 +87,7 @@ class FilePack:
         return self.filename
 
     def _check_media(self):
+        self.ready_media = []
         if self.singleton is False:
             media_candidates = []
             for file in os.listdir(self.filename):
@@ -93,13 +97,14 @@ class FilePack:
                 else:
                     pass
             if len(media_candidates) == 1:
-                self.ready_media = Path(self.filename) / media_candidates.pop()
+                self.ready_media.append(Path(self.filename) / media_candidates.pop())
             elif len(media_candidates) > 1:
                 for file in media_candidates:
-                    if re.match(SAMPLE_REGEX, file):
+                    # TODO this needs to be a bit smarter...
+                    if re.search(SAMPLE_REGEX, file):
                         pass
                     else:
-                        self.ready_media = Path(self.filename) / file
+                        self.ready_media.append(Path(self.filename) / file)
 
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
@@ -146,14 +151,13 @@ def extract_media(media_archive_file, temp_dir):
             try:
                 rar_handle.extract(file, path=temp_dir.name)
                 if rar_handle.strerror() is None:
-                    media_archive_file.ready_media = str(Path(temp_dir.name) / file.filename)
+                    media_archive_file.ready_media.append(Path(temp_dir.name) / file.filename)
                 elif rar_handle.strerror() is not None:
                     print(f'strerror: {rar_handle.strerror()}')
             except PermissionError:
                 print('unable to extract to specified directory')
         else:
             print('no mkv here')
-    print('extract func complete')
 
 
 def extract_media_tar(media_archive_file):
@@ -170,8 +174,10 @@ def extract_media_tar(media_archive_file):
 
 
 def upload_media(file_group):
-    """ To upload file to endpoint using rsync. Ensure lockfile to avoid overrunning. """
-    rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} "{file_group}" ' \
+    """ To upload file to endpoint using rsync. """
+    # TODO complete function to obtain destination directory as this currently dumps all files in destination root
+    upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
+    rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} {upload_file_string} ' \
                  f'{RSYNC_DST_USER}@{RSYNC_DST_HOST}:"{RSYNC_DST_PATH}"'
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
@@ -194,6 +200,8 @@ def cli_args():
     parser = argparse.ArgumentParser(description='File to prepare and send.')
     parser.add_argument('filename', type=str, help='the filename and path to send')
     parser.add_argument('--config', type=str, help='path to configuration file')
+    parser.add_argument('--dry-run', '-n', action='store_const', const='DRY_RUN', help='dry run - does nothing at the '
+                                                                                       'moment')
     return parser.parse_args()
 
 
@@ -220,6 +228,11 @@ def media_journey(file_group):
             print('media uploaded')
         else:
             print('media not uploaded.')
+
+
+def get_directory_name(media_pack):
+    directory_name = re.match('(^.*[Ss]eason [0-9]+)', media_pack.parent.name)
+    return directory_name.group(1)
 
 
 if __name__ == '__main__':
