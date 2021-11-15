@@ -1,11 +1,9 @@
 import pathlib
 import unittest
 
-import pyfakefs.pytest_tests.pytest_doctest_test
-
 import autodrop
 import os
-# from unittest.mock import Mock
+from unittest.mock import Mock
 from pyfakefs import fake_filesystem_unittest
 
 
@@ -42,7 +40,6 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         with open(test_dir + '/mediafile sample.mkv', 'w') as file:
             file.write('test data')
         test_object = autodrop.FilePack(test_dir)
-        print(test_object.ready_media)
         self.assertEqual([pathlib.Path('/tmp/downloads/sample media dir/mediafile.mkv')], test_object.ready_media)
 
     def test_multiple_media(self):
