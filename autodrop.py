@@ -227,7 +227,7 @@ def media_journey(file_group):
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media):
             print('successfully uploaded media')
-            send_mail_notification(Path(file_group).name)
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media did not upload. Cleaning up.')
             sys.exit()
