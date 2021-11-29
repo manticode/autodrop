@@ -9,11 +9,13 @@ import argparse
 import configparser
 import os
 import re
+import smtplib
 import subprocess
 import sys
 import tarfile
 import tempfile
 import rarfile
+import uuid
 from pathlib import Path
 
 MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
@@ -26,6 +28,8 @@ RSYNC_DST_USER = 'serviio'
 RSYNC_DST_HOST = 'my.media.server.ip'
 RSYNC_DST_PATH = '/mnt/media/incoming/'
 RSYNC_OPTIONS = f'-az -e "ssh -p 9022 -i {SSH_KEYFILE}"'
+NOTIFICATION_EMAIL_TO = None
+NOTIFICATION_EMAIL_FROM = None
 
 
 def import_config(**kwargs):
@@ -41,6 +45,8 @@ def import_config(**kwargs):
         global RSYNC_DST_HOST
         global RSYNC_DST_PATH
         global RSYNC_OPTIONS
+        global NOTIFICATION_EMAIL_TO
+        global NOTIFICATION_EMAIL_FROM
         MEDIA_EXTENSIONS = config['autodrop']['MEDIA_EXTENSIONS']
         ARCHIVE_EXTENSIONS = config['autodrop']['ARCHIVE_EXTENSIONS']
         SAMPLE_REGEX = config['autodrop']['SAMPLE_REGEX']
@@ -51,6 +57,8 @@ def import_config(**kwargs):
         RSYNC_DST_HOST = config['autodrop']['RSYNC_DST_HOST']
         RSYNC_DST_PATH = config['autodrop']['RSYNC_DST_PATH']
         RSYNC_OPTIONS = config['autodrop']['RSYNC_OPTIONS']
+        NOTIFICATION_EMAIL_TO = config['autodrop']['EMAIL_TO']
+        NOTIFICATION_EMAIL_FROM = config['autodrop']['EMAIL_FROM']
 
     config = configparser.ConfigParser()
     if 'config_file' in kwargs.keys():
@@ -219,6 +227,7 @@ def media_journey(file_group):
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media):
             print('successfully uploaded media')
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media did not upload. Cleaning up.')
             sys.exit()
@@ -226,13 +235,28 @@ def media_journey(file_group):
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
         if upload_media(file_group.ready_media):
             print('media uploaded')
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media not uploaded.')
 
 
 def get_directory_name(media_pack):
-    directory_name = re.match('(^.*[Ss]eason [0-9]+)', media_pack.parent.name)
+    directory_name = re.match('(^.*[Ss]eason [0-9]+|.*S[0-9]{2,})', media_pack.parent.name)
     return directory_name.group(1)
+
+
+def send_mail_notification(filename):
+    msg = f'From: "Autodrop Notify" <{NOTIFICATION_EMAIL_FROM}>\n' \
+          f'To: <{NOTIFICATION_EMAIL_TO}>\n' \
+          f'Subject: Media transfer complete for {filename}\n' \
+          f'Message-ID: <{uuid.uuid4()}@{NOTIFICATION_EMAIL_FROM.split("@")[1]}>\n' \
+          f'X-autodrop-version: {__version__}\n\n' \
+          f'Hi,\n\n' \
+          f'Transfer of {filename} complete.\n'
+    server = smtplib.SMTP('localhost')
+    server.set_debuglevel(2)
+    server.sendmail(f'{NOTIFICATION_EMAIL_FROM}', f'{NOTIFICATION_EMAIL_TO}', msg)
+    server.quit()
 
 
 if __name__ == '__main__':

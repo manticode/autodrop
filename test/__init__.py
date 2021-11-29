@@ -5,6 +5,10 @@ import pyfakefs.pytest_tests.pytest_doctest_test
 
 import autodrop
 import os
+import unittest.mock
+from unittest.mock import patch
+from pathlib import Path
+
 # from unittest.mock import Mock
 from pyfakefs import fake_filesystem_unittest
 
@@ -42,7 +46,6 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         with open(test_dir + '/mediafile sample.mkv', 'w') as file:
             file.write('test data')
         test_object = autodrop.FilePack(test_dir)
-        print(test_object.ready_media)
         self.assertEqual([pathlib.Path('/tmp/downloads/sample media dir/mediafile.mkv')], test_object.ready_media)
 
     def test_multiple_media(self):
@@ -62,6 +65,17 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
                 file.write('test data')
         test_object = autodrop.FilePack(test_dir)
         self.assertTrue(test_object.media_archive)
+
+
+class TestMail(unittest.TestCase):
+    def test_send_mock_mail(self):
+        with patch('smtplib.SMTP') as mock_smtp:
+            test_filename = Path('/abc/def/ghi/Test Mock Movie').name
+            autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
+            autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
+            test_send = autodrop.send_mail_notification(test_filename)
+            print(mock_smtp.mock_calls)
+            self.assertFalse(test_send)
 
 
 if __name__ == '__main__':
