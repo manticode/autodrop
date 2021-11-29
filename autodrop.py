@@ -227,7 +227,7 @@ def media_journey(file_group):
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media):
             print('successfully uploaded media')
-            send_mail_notification(file_group.filename)
+            send_mail_notification(Path(file_group).name)
         else:
             print('media did not upload. Cleaning up.')
             sys.exit()
@@ -235,13 +235,13 @@ def media_journey(file_group):
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
         if upload_media(file_group.ready_media):
             print('media uploaded')
-            send_mail_notification(file_group.filename)
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media not uploaded.')
 
 
 def get_directory_name(media_pack):
-    directory_name = re.match('(^.*[Ss]eason [0-9]+)', media_pack.parent.name)
+    directory_name = re.match('(^.*[Ss]eason [0-9]+|.*S[0-9]{2,})', media_pack.parent.name)
     return directory_name.group(1)
 
 

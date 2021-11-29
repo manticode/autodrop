@@ -7,6 +7,7 @@ import autodrop
 import os
 import unittest.mock
 from unittest.mock import patch
+from pathlib import Path
 
 # from unittest.mock import Mock
 from pyfakefs import fake_filesystem_unittest
@@ -69,10 +70,11 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
 class TestMail(unittest.TestCase):
     def test_send_mock_mail(self):
         with patch('smtplib.SMTP') as mock_smtp:
-            test_filename = 'Test Mock Movie'
+            test_filename = Path('/abc/def/ghi/Test Mock Movie').name
             autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
             autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
             test_send = autodrop.send_mail_notification(test_filename)
+            print(mock_smtp.mock_calls)
             self.assertFalse(test_send)
 
 
