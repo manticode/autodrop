@@ -113,6 +113,8 @@ class FilePack:
                         pass
                     else:
                         self.ready_media.append(Path(self.filename) / file)
+        else:
+            self.ready_media.append(Path(self.filename))
 
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
@@ -216,7 +218,7 @@ def cli_args():
 def media_journey(file_group):
     if not file_group.has_sample and file_group.singleton:
         # TODO add check for files in folder but not archived
-        if upload_media(file_group.filename):
+        if upload_media(file_group.ready_media):
             print('successfully uploaded media')
         else:
             print('media did not upload. Cleaning up.')

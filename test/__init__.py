@@ -28,7 +28,7 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         with open(test_filename, 'w') as file:
             file.write('test data')
         test_object = autodrop.FilePack('/tmp/downloads/mediafile.mkv')
-        self.assertEqual(test_object.filename, test_filename)
+        self.assertEqual([pathlib.Path(test_filename)], test_object.ready_media)
 
     def test_single_media(self):
         test_dir = '/tmp/downloads/single media dir'
