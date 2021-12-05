@@ -220,6 +220,7 @@ def media_journey(file_group):
         # TODO add check for files in folder but not archived
         if upload_media(file_group.ready_media):
             print('successfully uploaded media')
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
@@ -256,7 +257,7 @@ def send_mail_notification(filename):
           f'Hi,\n\n' \
           f'Transfer of {filename} complete.\n'
     server = smtplib.SMTP('localhost')
-    server.set_debuglevel(2)
+    server.set_debuglevel(0)
     server.sendmail(f'{NOTIFICATION_EMAIL_FROM}', f'{NOTIFICATION_EMAIL_TO}', msg)
     server.quit()
 
