@@ -228,9 +228,9 @@ def cli_args():
 
 def media_journey(file_group):
     if not file_group.has_sample and file_group.singleton:
-        # TODO add check for files in folder but not archived
         if upload_media(file_group.ready_media):
             print('successfully uploaded media')
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
