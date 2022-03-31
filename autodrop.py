@@ -90,6 +90,7 @@ class FilePack:
         self.sample_filename = filepath + 'sample'
         self.is_tarred = self._check_tarball()
         self.has_sample = self._check_sample()
+        self._video_type()
 
     def __call__(self):
         return self.filename
@@ -113,6 +114,16 @@ class FilePack:
                         pass
                     else:
                         self.ready_media.append(Path(self.filename) / file)
+        elif self.singleton:
+            self.ready_media.append(Path(self.filename))
+
+    def _video_type(self):
+        if re.search('[Ss][0-9]{2}[Ee][0-9]{2}', self.filename):
+            self.video_type = 'tv'
+        elif re.search('[Ss]eason [0-9]{1,3}', self.filename):
+            self.video_type = 'tv'
+        elif re.search('(1080p|720p|480p)', self.filename):
+            self.video_type = 'movie'
 
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
@@ -185,8 +196,10 @@ def upload_media(file_group):
     """ To upload file to endpoint using rsync. """
     # TODO complete function to obtain destination directory as this currently dumps all files in destination root
     upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
+    print(upload_file_string)
     rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} {upload_file_string} ' \
                  f'{RSYNC_DST_USER}@{RSYNC_DST_HOST}:"{RSYNC_DST_PATH}"'
+    print(rsync_exec)
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
         if rsync_ran.returncode == 0:
@@ -215,9 +228,9 @@ def cli_args():
 
 def media_journey(file_group):
     if not file_group.has_sample and file_group.singleton:
-        # TODO add check for files in folder but not archived
-        if upload_media(file_group.filename):
+        if upload_media(file_group.ready_media):
             print('successfully uploaded media')
+            send_mail_notification(Path(file_group.filename).name)
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
@@ -240,9 +253,33 @@ def media_journey(file_group):
             print('media not uploaded.')
 
 
+def is_movie_or_tv(media_pack):
+    # if has SnnEnn in name then true
+    # if has Season n Episode n in name then true
+    # if has 1080p or 720p or 480p in name then true
+    # else is not a movie or tv episode/season
+    # this should probably be an object method
+    pass
+
+
 def get_directory_name(media_pack):
-    directory_name = re.match('(^.*[Ss]eason [0-9]+|.*S[0-9]{2,})', media_pack.parent.name)
-    return directory_name.group(1)
+    directory_name = re.search('^(?:\\[.*?])?(.*?)(?:(?:[Ss]|[Ss]eason[. ])([0-9]{1,3})).*', media_pack.parent.name)
+    print(media_pack)
+    print(media_pack.parent.name)
+    if directory_name:
+        print(f'{directory_name}')
+        print('0: ', directory_name.group(0))
+        print('1: ', directory_name.group(1))
+        print('2: ', directory_name.group(2))
+        if directory_name.group(2):
+            print('0: ', directory_name.group(0))
+            print('1: ', directory_name.group(1))
+            print('2: ', directory_name.group(2))
+            return directory_name.group(1).replace('.', ' ').strip() + ' Season ' + directory_name.group(2).lstrip('0')
+        else:
+            return directory_name.group(1).replace('.', ' ').strip()
+    else:
+        return 'FAIL'
 
 
 def send_mail_notification(filename):
