@@ -300,5 +300,8 @@ if __name__ == '__main__':
     args = cli_args()
     import_config(config_file=args.config)
     media_group_name = args.filename
+    staging_dir = Path(STAGING_DIR)
+    if not staging_dir.exists():
+        staging_dir.mkdir(parents=True, exist_ok=True)
     media = FilePack(media_group_name)
     media_journey(media)
