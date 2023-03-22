@@ -32,6 +32,32 @@ NOTIFICATION_EMAIL_TO = None
 NOTIFICATION_EMAIL_FROM = None
 
 
+# class Config:
+#     """ Class to handle configuration file. """
+#     def __init__(self, config_file=None,):
+#         self.config_file = config_file
+#         self.config = configparser.ConfigParser()
+#         self.config.read(self.config_file)
+#         self.config_vars = self.config['autodrop']
+#         self.MEDIA_EXTENSIONS = self.config_vars['MEDIA_EXTENSIONS']
+#         self.ARCHIVE_EXTENSIONS = self.config_vars['ARCHIVE_EXTENSIONS']
+#         self.SAMPLE_REGEX = self.config_vars['SAMPLE_REGEX']
+#         self.STAGING_DIR = self.config_vars['STAGING_DIR']
+#         self.SSH_KEYFILE = self.config_vars['SSH_KEYFILE']
+#         self.RSYNC_PATH = self.config_vars['RSYNC_PATH']
+#         self.RSYNC_DST_USER = self.config_vars['RSYNC_DST_USER']
+#         self.RSYNC_DST_HOST = self.config_vars['RSYNC_DST_HOST']
+#         self.RSYNC_DST_PATH = self.config_vars['RSYNC_DST_PATH']
+#         self.RSYNC_OPTIONS = self.config_vars['RSYNC_OPTIONS']
+#         self.NOTIFICATION_EMAIL_TO = self.config_vars['EMAIL_TO']
+#         self.NOTIFICATION_EMAIL_FROM = self.config_vars['EMAIL_FROM']
+    
+#     def import_config():
+#         pass
+    
+#     __call__ = import_config
+
+
 def import_config(**kwargs):
     def set_config_vars():
         print('set config vars')
@@ -81,7 +107,7 @@ def import_config(**kwargs):
 
 class FilePack:
     """ File or group of files (folder) to be prepared for upload. """
-
+    
     def __init__(self, filepath):
         self.filename = filepath
         self.singleton = self._check_singleton()
@@ -91,7 +117,7 @@ class FilePack:
         self.is_tarred = self._check_tarball()
         self.has_sample = self._check_sample()
         self._video_type()
-
+    
     def __call__(self):
         return self.filename
 
@@ -116,7 +142,7 @@ class FilePack:
                         self.ready_media.append(Path(self.filename) / file)
         elif self.singleton:
             self.ready_media.append(Path(self.filename))
-
+    
     def _video_type(self):
         if re.search('[Ss][0-9]{2}[Ee][0-9]{2}', self.filename):
             self.video_type = 'tv'
@@ -124,7 +150,7 @@ class FilePack:
             self.video_type = 'tv'
         elif re.search('(1080p|720p|480p)', self.filename):
             self.video_type = 'movie'
-
+    
     def _check_sample(self):
         """ Return True if media pack contains a Sample media file. """
         if 'sample' in self.filename:
@@ -145,7 +171,7 @@ class FilePack:
                     pass
         else:
             return False
-
+    
     def _check_singleton(self):
         if os.path.isdir(self.filename):
             return False
