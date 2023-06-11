@@ -18,12 +18,10 @@ import rarfile
 import uuid
 from pathlib import Path
 
-MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
-ARCHIVE_EXTENSIONS = ['tar', 'zip', 'rar']
+# MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
+# ARCHIVE_EXTENSIONS = ['tar', 'zip', 'rar']
 SAMPLE_REGEX = '[Ss]ample'
-STAGING_DIR = '/home/rtorrent/staging'
 SSH_KEYFILE = '/home/rtorrent/.ssh/bigbox'
-RSYNC_PATH = '/usr/bin/rsync'
 RSYNC_DST_USER = 'serviio'
 RSYNC_DST_HOST = 'my.media.server.ip'
 RSYNC_DST_PATH = '/mnt/media/incoming/'
@@ -35,30 +33,19 @@ NOTIFICATION_EMAIL_FROM = None
 def import_config(**kwargs):
     def set_config_vars():
         print('set config vars')
-        global MEDIA_EXTENSIONS
-        global ARCHIVE_EXTENSIONS
-        global SAMPLE_REGEX
-        global STAGING_DIR
-        global SSH_KEYFILE
-        global RSYNC_PATH
-        global RSYNC_DST_USER
-        global RSYNC_DST_HOST
-        global RSYNC_DST_PATH
-        global RSYNC_OPTIONS
-        global NOTIFICATION_EMAIL_TO
-        global NOTIFICATION_EMAIL_FROM
-        MEDIA_EXTENSIONS = config['autodrop']['MEDIA_EXTENSIONS']
-        ARCHIVE_EXTENSIONS = config['autodrop']['ARCHIVE_EXTENSIONS']
-        SAMPLE_REGEX = config['autodrop']['SAMPLE_REGEX']
-        STAGING_DIR = config['autodrop']['STAGING_DIR']
-        SSH_KEYFILE = config['autodrop']['SSH_KEYFILE']
-        RSYNC_PATH = config['autodrop']['RSYNC_PATH']
-        RSYNC_DST_USER = config['autodrop']['RSYNC_DST_USER']
-        RSYNC_DST_HOST = config['autodrop']['RSYNC_DST_HOST']
-        RSYNC_DST_PATH = config['autodrop']['RSYNC_DST_PATH']
-        RSYNC_OPTIONS = config['autodrop']['RSYNC_OPTIONS']
-        NOTIFICATION_EMAIL_TO = config['autodrop']['EMAIL_TO']
-        NOTIFICATION_EMAIL_FROM = config['autodrop']['EMAIL_FROM']
+        try:
+            config_options = config['autodrop']
+        except KeyError as e:
+            config.add_section('autodrop')
+            config_options = config['autodrop']
+        config_options.setdefault('MEDIA_EXTENSIONS', str(['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']))
+        config_options.setdefault('ARCHIVE_EXTENSIONS', str(['tar', 'zip', 'rar', 'bzip2']))
+        config_options.setdefault('SAMPLE_REGEX', str('Ss]ample'))
+        config_options.setdefault('STAGING_DIR', '/tmp')
+        # SSH_KEYFILE = config['autodrop']['SSH_KEYFILE']
+        config_options.setdefault('RSYNC_PATH', str(subprocess.run(['which', 'rsync']).stdout))
+        # NOTIFICATION_EMAIL_TO = config['autodrop']['NOTIFICATION_EMAIL_TO']
+        # NOTIFICATION_EMAIL_FROM = config['autodrop']['NOTIFICATION_EMAIL_FROM']
 
     config = configparser.ConfigParser()
     if 'config_file' in kwargs.keys():
@@ -77,20 +64,30 @@ def import_config(**kwargs):
                 set_config_vars()
             except configparser.Error as e:
                 print(f'error due to {e}')
+    else:
+        set_config_vars()
+    return config
 
 
 class FilePack:
     """ File or group of files (folder) to be prepared for upload. """
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, media_extensions, **kwargs):
         self.filename = filepath
+        self.media_extensions = media_extensions
         self.singleton = self._check_singleton()
         self._check_media()
         self.media_archive = None
         self.sample_filename = filepath + 'sample'
-        self.is_tarred = self._check_tarball()
         self.has_sample = self._check_sample()
         self._video_type()
+
+        try:
+            self.archive_extensions = kwargs['archive_extensions']
+        except KeyError:
+            self.archive_extensions = ['rar']
+
+        self.is_tarred = self._check_tarball()
 
     def __call__(self):
         return self.filename
@@ -101,7 +98,7 @@ class FilePack:
             media_candidates = []
             for file in os.listdir(self.filename):
                 file_extension = file.split('.')[-1]
-                if file_extension in MEDIA_EXTENSIONS:
+                if file_extension in self.media_extensions:
                     media_candidates.append(file)
                 else:
                     pass
@@ -138,7 +135,8 @@ class FilePack:
         if self.singleton is False:
             for file in os.listdir(self.filename):
                 file_extension = file.split('.')[-1]
-                if file_extension in ARCHIVE_EXTENSIONS:
+                print(file_extension)
+                if file_extension in self.archive_extensions:
                     self.media_archive = Path(self.filename) / file
                     return True
                 else:
@@ -180,6 +178,7 @@ def extract_media(media_archive_file, temp_dir):
 
 
 def extract_media_tar(media_archive_file):
+    # TODO maybe delete this function as it's not used...?
     """ Extract file from compressed archive. """
     print('about to extract...', media_archive_file.media_archive)
     if tarfile.is_tarfile(media_archive_file.media_archive):
@@ -192,13 +191,12 @@ def extract_media_tar(media_archive_file):
     pass
 
 
-def upload_media(file_group):
+def upload_media(file_group, rsync_args):
     """ To upload file to endpoint using rsync. """
-    # TODO complete function to obtain destination directory as this currently dumps all files in destination root
     upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
     print(upload_file_string)
-    rsync_exec = f'{RSYNC_PATH} {RSYNC_OPTIONS} {upload_file_string} ' \
-                 f'{RSYNC_DST_USER}@{RSYNC_DST_HOST}:"{RSYNC_DST_PATH}"'
+    rsync_exec = f'{rsync_args["rsync_path"]} {rsync_args["rsync_options"]} {upload_file_string} ' \
+                 f'{rsync_args["rsync_dst_user"]}@{rsync_args["rsync_dst_host"]}:"{rsync_args["rsync_dst_path"]}"'
     print(rsync_exec)
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
@@ -226,9 +224,16 @@ def cli_args():
     return parser.parse_args()
 
 
-def media_journey(file_group):
+def media_journey(file_group, config_opts, stg_dir):
+    config_params = config_opts['autodrop']
+    rsync_params = {"rsync_path": config_params.get('RSYNC_PATH'),
+                    "rsync_options": config_params.get('RSYNC_OPTIONS'),
+                    "rsync_dst_host": config_params.get('RSYNC_DST_HOST'),
+                    "rsync_dst_path": config_params.get('RSYNC_DST_PATH'),
+                    "rsync_dst_user": config_params.get('RSYNC_DST_USER')}
     if not file_group.has_sample and file_group.singleton:
-        if upload_media(file_group.ready_media):
+        transfer_source = file_group.ready_media
+        if upload_media(file_group.ready_media, rsync_params):
             print('successfully uploaded media')
             send_mail_notification(Path(file_group.filename).name)
         else:
@@ -236,9 +241,9 @@ def media_journey(file_group):
             # TODO add cleanup method
     elif file_group.media_archive:
         print('need to unpack...')
-        temp_dir = tempfile.TemporaryDirectory(dir=STAGING_DIR)
+        temp_dir = tempfile.TemporaryDirectory(dir=stg_dir)
         extract_media(file_group, temp_dir)
-        if upload_media(file_group.ready_media):
+        if upload_media(file_group.ready_media, rsync_params):
             print('successfully uploaded media')
             send_mail_notification(Path(file_group.filename).name)
         else:
@@ -246,11 +251,12 @@ def media_journey(file_group):
             sys.exit()
         pass
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
-        if upload_media(file_group.ready_media):
+        if upload_media(file_group.ready_media, rsync_params):
             print('media uploaded')
             send_mail_notification(Path(file_group.filename).name)
         else:
             print('media not uploaded.')
+
 
 
 def is_movie_or_tv(media_pack):
@@ -283,6 +289,7 @@ def get_directory_name(media_pack):
 
 
 def send_mail_notification(filename):
+    # FIXME decouple global vars and set as method input parameters
     msg = f'From: "Autodrop Notify" <{NOTIFICATION_EMAIL_FROM}>\n' \
           f'To: <{NOTIFICATION_EMAIL_TO}>\n' \
           f'Subject: Media transfer complete for {filename}\n' \
@@ -298,10 +305,12 @@ def send_mail_notification(filename):
 
 if __name__ == '__main__':
     args = cli_args()
-    import_config(config_file=args.config)
+    config = import_config(config_file=args.config)
     media_group_name = args.filename
-    staging_dir = Path(STAGING_DIR)
+    staging_dir = Path(config['autodrop']['STAGING_DIR'])
     if not staging_dir.exists():
         staging_dir.mkdir(parents=True, exist_ok=True)
-    media = FilePack(media_group_name)
-    media_journey(media)
+    media = FilePack(media_group_name,
+                     config['autodrop']['MEDIA_EXTENSIONS'],
+                     archive_extensions=['a', 'b'])
+    media_journey(media, config, staging_dir)
