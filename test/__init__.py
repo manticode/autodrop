@@ -18,7 +18,7 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         print('setting up')
         self.setUpPyfakefs()
         os.makedirs('/tmp/downloads')
-        self.config = autodrop.import_config()
+        self.config = autodrop.import_config()/
         print(self.config)
         print(self.config['autodrop'])
         print(self.config['autodrop']['MEDIA_EXTENSIONS'])

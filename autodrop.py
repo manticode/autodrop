@@ -18,17 +18,6 @@ import rarfile
 import uuid
 from pathlib import Path
 
-# MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
-# ARCHIVE_EXTENSIONS = ['tar', 'zip', 'rar']
-SAMPLE_REGEX = '[Ss]ample'
-SSH_KEYFILE = '/home/rtorrent/.ssh/bigbox'
-RSYNC_DST_USER = 'serviio'
-RSYNC_DST_HOST = 'my.media.server.ip'
-RSYNC_DST_PATH = '/mnt/media/incoming/'
-RSYNC_OPTIONS = f'-az -e "ssh -p 9022 -i {SSH_KEYFILE}"'
-NOTIFICATION_EMAIL_TO = None
-NOTIFICATION_EMAIL_FROM = None
-
 
 def import_config(**kwargs):
     def set_config_vars():
@@ -57,6 +46,7 @@ def import_config(**kwargs):
                     print('unable to read config')
                     sys.exit()
             except TypeError:
+                print('exiting due to TypeError')
                 sys.exit()
         else:
             try:
@@ -235,7 +225,7 @@ def media_journey(file_group, config_opts, stg_dir):
         transfer_source = file_group.ready_media
         if upload_media(file_group.ready_media, rsync_params):
             print('successfully uploaded media')
-            send_mail_notification(Path(file_group.filename).name)
+            send_mail_notification(Path(file_group.filename).name, config_params)
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
@@ -245,7 +235,7 @@ def media_journey(file_group, config_opts, stg_dir):
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media, rsync_params):
             print('successfully uploaded media')
-            send_mail_notification(Path(file_group.filename).name)
+            send_mail_notification(Path(file_group.filename).name, config_params)
         else:
             print('media did not upload. Cleaning up.')
             sys.exit()
@@ -253,9 +243,10 @@ def media_journey(file_group, config_opts, stg_dir):
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
         if upload_media(file_group.ready_media, rsync_params):
             print('media uploaded')
-            send_mail_notification(Path(file_group.filename).name)
+            send_mail_notification(Path(file_group.filename).name, config_params)
         else:
             print('media not uploaded.')
+    print('upload attempt complete')
 
 
 
@@ -288,18 +279,18 @@ def get_directory_name(media_pack):
         return 'FAIL'
 
 
-def send_mail_notification(filename):
-    # FIXME decouple global vars and set as method input parameters
-    msg = f'From: "Autodrop Notify" <{NOTIFICATION_EMAIL_FROM}>\n' \
-          f'To: <{NOTIFICATION_EMAIL_TO}>\n' \
+def send_mail_notification(filename, config_opts):
+    """ Only local running SMTP server supported currently. """
+    msg = f'From: "Autodrop Notify" <{config_opts.get("NOTIFICATION_EMAIL_FROM")}>\n' \
+          f'To: <{config_opts.get("NOTIFICATION_EMAIL_TO")}>\n' \
           f'Subject: Media transfer complete for {filename}\n' \
-          f'Message-ID: <{uuid.uuid4()}@{NOTIFICATION_EMAIL_FROM.split("@")[1]}>\n' \
+          f'Message-ID: <{uuid.uuid4()}@{config_opts.get("NOTIFICATION_EMAIL_FROM").split("@")[1]}>\n' \
           f'X-autodrop-version: {__version__}\n\n' \
           f'Hi,\n\n' \
           f'Transfer of {filename} complete.\n'
     server = smtplib.SMTP('localhost')
-    server.set_debuglevel(2)
-    server.sendmail(f'{NOTIFICATION_EMAIL_FROM}', f'{NOTIFICATION_EMAIL_TO}', msg)
+    server.set_debuglevel(False)
+    server.sendmail(f'{config_opts.get("NOTIFICATION_EMAIL_FROM")}', f'{config_opts.get("NOTIFICATION_EMAIL_TO")}', msg)
     server.quit()
 
 
@@ -311,6 +302,5 @@ if __name__ == '__main__':
     if not staging_dir.exists():
         staging_dir.mkdir(parents=True, exist_ok=True)
     media = FilePack(media_group_name,
-                     config['autodrop']['MEDIA_EXTENSIONS'],
-                     archive_extensions=['a', 'b'])
+                     config['autodrop']['MEDIA_EXTENSIONS'])
     media_journey(media, config, staging_dir)
