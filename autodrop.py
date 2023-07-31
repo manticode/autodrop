@@ -170,20 +170,6 @@ def extract_media(media_archive_file, temp_dir):
             print('no mkv here')
 
 
-def extract_media_tar(media_archive_file):
-    # TODO maybe delete this function as it's not used...?
-    """ Extract file from compressed archive. """
-    print('about to extract...', media_archive_file.media_archive)
-    if tarfile.is_tarfile(media_archive_file.media_archive):
-        print('extracting...:', media_archive_file.media_archive)
-        tar = tarfile.open(name=media_archive_file.media_archive, mode='r')
-        print('tar object created')
-        print('tar.name')
-        tar.extractall(path=STAGING_DIR)
-    print('did not extract')
-    pass
-
-
 def upload_media(file_group, rsync_args):
     """ To upload file to endpoint using rsync. """
     upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
