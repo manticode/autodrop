@@ -29,12 +29,10 @@ def import_config(**kwargs):
             config_options = config['autodrop']
         config_options.setdefault('MEDIA_EXTENSIONS', str(['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']))
         config_options.setdefault('ARCHIVE_EXTENSIONS', str(['tar', 'zip', 'rar', 'bzip2']))
-        config_options.setdefault('SAMPLE_REGEX', str('Ss]ample'))
+        config_options.setdefault('SAMPLE_REGEX', str('[Ss]ample'))
         config_options.setdefault('STAGING_DIR', '/tmp')
         # SSH_KEYFILE = config['autodrop']['SSH_KEYFILE']
         config_options.setdefault('RSYNC_PATH', str(subprocess.run(['which', 'rsync']).stdout))
-        # NOTIFICATION_EMAIL_TO = config['autodrop']['NOTIFICATION_EMAIL_TO']
-        # NOTIFICATION_EMAIL_FROM = config['autodrop']['NOTIFICATION_EMAIL_FROM']
 
     config = configparser.ConfigParser()
     if 'config_file' in kwargs.keys():
@@ -79,6 +77,11 @@ class FilePack:
 
         self.is_tarred = self._check_tarball()
 
+        try:
+            self.sample_regex = kwargs['SAMPLE_REGEX']
+        except KeyError:
+            self.sample_regex = '[Ss]ample'
+
     def __call__(self):
         return self.filename
 
@@ -97,7 +100,7 @@ class FilePack:
             elif len(media_candidates) > 1:
                 for file in media_candidates:
                     # TODO this needs to be a bit smarter...
-                    if re.search(SAMPLE_REGEX, file):
+                    if re.search(self.sample_regex, file):
                         pass
                     else:
                         self.ready_media.append(Path(self.filename) / file)
