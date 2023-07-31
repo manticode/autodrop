@@ -44,7 +44,6 @@ def import_config(**kwargs):
                     print('unable to read config')
                     sys.exit()
             except TypeError:
-                print('exiting due to TypeError')
                 sys.exit()
         else:
             try:
@@ -128,7 +127,6 @@ class FilePack:
         if self.singleton is False:
             for file in os.listdir(self.filename):
                 file_extension = file.split('.')[-1]
-                print(file_extension)
                 if file_extension in self.archive_extensions:
                     self.media_archive = Path(self.filename) / file
                     return True
@@ -213,17 +211,14 @@ def media_journey(file_group, config_opts, stg_dir):
     if not file_group.has_sample and file_group.singleton:
         transfer_source = file_group.ready_media
         if upload_media(file_group.ready_media, rsync_params):
-            print('successfully uploaded media')
             send_mail_notification(Path(file_group.filename).name, config_params)
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
     elif file_group.media_archive:
-        print('need to unpack...')
         temp_dir = tempfile.TemporaryDirectory(dir=stg_dir)
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media, rsync_params):
-            print('successfully uploaded media')
             send_mail_notification(Path(file_group.filename).name, config_params)
         else:
             print('media did not upload. Cleaning up.')
@@ -238,7 +233,6 @@ def media_journey(file_group, config_opts, stg_dir):
     print('upload attempt complete')
 
 
-
 def is_movie_or_tv(media_pack):
     # if has SnnEnn in name then true
     # if has Season n Episode n in name then true
@@ -250,17 +244,8 @@ def is_movie_or_tv(media_pack):
 
 def get_directory_name(media_pack):
     directory_name = re.search('^(?:\\[.*?])?(.*?)(?:(?:[Ss]|[Ss]eason[. ])([0-9]{1,3})).*', media_pack.parent.name)
-    print(media_pack)
-    print(media_pack.parent.name)
     if directory_name:
-        print(f'{directory_name}')
-        print('0: ', directory_name.group(0))
-        print('1: ', directory_name.group(1))
-        print('2: ', directory_name.group(2))
         if directory_name.group(2):
-            print('0: ', directory_name.group(0))
-            print('1: ', directory_name.group(1))
-            print('2: ', directory_name.group(2))
             return directory_name.group(1).replace('.', ' ').strip() + ' Season ' + directory_name.group(2).lstrip('0')
         else:
             return directory_name.group(1).replace('.', ' ').strip()
