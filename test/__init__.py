@@ -84,14 +84,14 @@ class TestMail(unittest.TestCase):
 
         self.conf.add_section('autodrop')
         self.config = self.conf['autodrop']
-        self.conf.set('autodrop', 'NOTIFICATION_EMAIL_FROM', 'test@test.com')
-        self.conf.set('autodrop', 'NOTIFICATION_EMAIL_TO', 'test-recipient@example.net')
+        self.conf.set('autodrop', 'EMAIL_FROM', 'test@test.com')
+        self.conf.set('autodrop', 'EMAIL_TO', 'test-recipient@example.net')
         #self.config = autodrop.import_config()
         print('Done setting up')
 
     def test_send_mock_mail(self):
-        print(self.conf.get('autodrop', 'NOTIFICATION_EMAIL_FROM'))
-        print(self.conf.get('autodrop', 'NOTIFICATION_EMAIL_TO'))
+        print(self.conf.get('autodrop', 'EMAIL_FROM'))
+        print(self.conf.get('autodrop', 'EMAIL_TO'))
         print(self.conf['autodrop'])
         with patch('smtplib.SMTP') as mock_smtp:
             test_filename = Path('/abc/def/ghi/Test Mock Movie').name

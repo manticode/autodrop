@@ -257,16 +257,16 @@ def get_directory_name(media_pack):
 
 def send_mail_notification(filename, config_opts):
     """ Only local running SMTP server supported currently. """
-    msg = f'From: "Autodrop Notify" <{config_opts.get("NOTIFICATION_EMAIL_FROM")}>\n' \
-          f'To: <{config_opts.get("NOTIFICATION_EMAIL_TO")}>\n' \
+    msg = f'From: "Autodrop Notify" <{config_opts.get("EMAIL_FROM")}>\n' \
+          f'To: <{config_opts.get("EMAIL_TO")}>\n' \
           f'Subject: Media transfer complete for {filename}\n' \
-          f'Message-ID: <{uuid.uuid4()}@{config_opts.get("NOTIFICATION_EMAIL_FROM").split("@")[1]}>\n' \
+          f'Message-ID: <{uuid.uuid4()}@{config_opts.get("EMAIL_FROM").split("@")[1]}>\n' \
           f'X-autodrop-version: {__version__}\n\n' \
           f'Hi,\n\n' \
           f'Transfer of {filename} complete.\n'
     server = smtplib.SMTP('localhost')
     server.set_debuglevel(False)
-    server.sendmail(f'{config_opts.get("NOTIFICATION_EMAIL_FROM")}', f'{config_opts.get("NOTIFICATION_EMAIL_TO")}', msg)
+    server.sendmail(f'{config_opts.get("EMAIL_FROM")}', f'{config_opts.get("EMAIL_TO")}', msg)
     server.quit()
 
 
