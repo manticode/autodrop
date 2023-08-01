@@ -1,3 +1,4 @@
+import configparser
 import pathlib
 import unittest
 
@@ -18,7 +19,7 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         print('setting up')
         self.setUpPyfakefs()
         os.makedirs('/tmp/downloads')
-        self.config = autodrop.import_config()/
+        self.config = autodrop.import_config()
         print(self.config)
         print(self.config['autodrop'])
         print(self.config['autodrop']['MEDIA_EXTENSIONS'])
@@ -77,12 +78,26 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
 
 
 class TestMail(unittest.TestCase):
+    """ TODO Clean up debug print statements and config object being passed through to function. """
+    def setUp(self):
+        self.conf = configparser.ConfigParser()
+
+        self.conf.add_section('autodrop')
+        self.config = self.conf['autodrop']
+        self.conf.set('autodrop', 'NOTIFICATION_EMAIL_FROM', 'test@test.com')
+        self.conf.set('autodrop', 'NOTIFICATION_EMAIL_TO', 'test-recipient@example.net')
+        #self.config = autodrop.import_config()
+        print('Done setting up')
+
     def test_send_mock_mail(self):
+        print(self.conf.get('autodrop', 'NOTIFICATION_EMAIL_FROM'))
+        print(self.conf.get('autodrop', 'NOTIFICATION_EMAIL_TO'))
+        print(self.conf['autodrop'])
         with patch('smtplib.SMTP') as mock_smtp:
             test_filename = Path('/abc/def/ghi/Test Mock Movie').name
-            autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
-            autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
-            test_send = autodrop.send_mail_notification(test_filename)
+            #autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
+            #autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
+            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'])
             print(mock_smtp.mock_calls)
             self.assertFalse(test_send)
 

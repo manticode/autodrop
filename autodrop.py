@@ -62,6 +62,12 @@ class FilePack:
     def __init__(self, filepath, media_extensions, **kwargs):
         self.filename = filepath
         self.media_extensions = media_extensions
+
+        try:
+            self.sample_regex = kwargs['SAMPLE_REGEX']
+        except KeyError:
+            self.sample_regex = '[Ss]ample'
+
         self.singleton = self._check_singleton()
         self._check_media()
         self.media_archive = None
@@ -76,10 +82,6 @@ class FilePack:
 
         self.is_tarred = self._check_tarball()
 
-        try:
-            self.sample_regex = kwargs['SAMPLE_REGEX']
-        except KeyError:
-            self.sample_regex = '[Ss]ample'
 
     def __call__(self):
         return self.filename
