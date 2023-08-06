@@ -31,7 +31,6 @@ def import_config(**kwargs):
         config_options.setdefault('ARCHIVE_EXTENSIONS', str(['tar', 'zip', 'rar', 'bzip2']))
         config_options.setdefault('SAMPLE_REGEX', str('[Ss]ample'))
         config_options.setdefault('STAGING_DIR', '/tmp')
-        # SSH_KEYFILE = config['autodrop']['SSH_KEYFILE']
         config_options.setdefault('RSYNC_PATH', str(subprocess.run(['which', 'rsync']).stdout))
 
     config = configparser.ConfigParser()
@@ -81,7 +80,6 @@ class FilePack:
             self.archive_extensions = ['rar']
 
         self.is_tarred = self._check_tarball()
-
 
     def __call__(self):
         return self.filename
@@ -181,7 +179,7 @@ def upload_media(file_group, rsync_args):
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
         if rsync_ran.returncode == 0:
             return True
-        elif rsync_ran.returncode == 35:
+        elif rsync_ran.returncode == 35 or rsync_ran.returncode == 255:
             print('Unable to connect')
             return False
         else:
@@ -213,7 +211,7 @@ def media_journey(file_group, config_opts, stg_dir):
     if not file_group.has_sample and file_group.singleton:
         transfer_source = file_group.ready_media
         if upload_media(file_group.ready_media, rsync_params):
-            send_mail_notification(Path(file_group.filename).name, config_params)
+            send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
@@ -221,7 +219,7 @@ def media_journey(file_group, config_opts, stg_dir):
         temp_dir = tempfile.TemporaryDirectory(dir=stg_dir)
         extract_media(file_group, temp_dir)
         if upload_media(file_group.ready_media, rsync_params):
-            send_mail_notification(Path(file_group.filename).name, config_params)
+            send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
             print('media did not upload. Cleaning up.')
             sys.exit()
@@ -229,7 +227,7 @@ def media_journey(file_group, config_opts, stg_dir):
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
         if upload_media(file_group.ready_media, rsync_params):
             print('media uploaded')
-            send_mail_notification(Path(file_group.filename).name, config_params)
+            send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
             print('media not uploaded.')
     print('upload attempt complete')
@@ -255,19 +253,31 @@ def get_directory_name(media_pack):
         return 'FAIL'
 
 
-def send_mail_notification(filename, config_opts):
+def send_mail_notification(filename, config_opts, **kwargs):
     """ Only local running SMTP server supported currently. """
-    msg = f'From: "Autodrop Notify" <{config_opts.get("EMAIL_FROM")}>\n' \
-          f'To: <{config_opts.get("EMAIL_TO")}>\n' \
-          f'Subject: Media transfer complete for {filename}\n' \
-          f'Message-ID: <{uuid.uuid4()}@{config_opts.get("EMAIL_FROM").split("@")[1]}>\n' \
-          f'X-autodrop-version: {__version__}\n\n' \
-          f'Hi,\n\n' \
-          f'Transfer of {filename} complete.\n'
+    if kwargs['status'] == 'fail':
+        headers = f'From: "Autodrop Notify" <{config_opts.get("EMAIL_FROM")}>\n' \
+                  f'To: <{config_opts.get("EMAIL_TO")}>\n' \
+                  f'Subject: Media transfer failed for {filename}\n' \
+                  f'Message-ID: <{uuid.uuid4()}@{config_opts.get("EMAIL_FROM").split("@")[1]}>\n' \
+                  f'X-autodrop-version: {__version__}\n\n'
+        msg = headers + f'Hi,\n\nTransfer failed for filename {filename}.'
+    elif kwargs['status'] == 'success':
+        headers = f'From: "Autodrop Notify" <{config_opts.get("EMAIL_FROM")}>\n' \
+                  f'To: <{config_opts.get("EMAIL_TO")}>\n' \
+                  f'Subject: Media transfer complete for {filename}\n' \
+                  f'Message-ID: <{uuid.uuid4()}@{config_opts.get("EMAIL_FROM").split("@")[1]}>\n' \
+                  f'X-autodrop-version: {__version__}\n\n'
+        msg = headers + f'Hi,\n\n' \
+                        f'Transfer of {filename} complete.\n'
     server = smtplib.SMTP('localhost')
     server.set_debuglevel(False)
     server.sendmail(f'{config_opts.get("EMAIL_FROM")}', f'{config_opts.get("EMAIL_TO")}', msg)
     server.quit()
+
+
+def cleanup(temp_dir):
+    pass
 
 
 if __name__ == '__main__':

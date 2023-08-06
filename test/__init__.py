@@ -97,7 +97,7 @@ class TestMail(unittest.TestCase):
             test_filename = Path('/abc/def/ghi/Test Mock Movie').name
             #autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
             #autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
-            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'])
+            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'], status='success')
             print(mock_smtp.mock_calls)
             self.assertFalse(test_send)
 
