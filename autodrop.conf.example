@@ -1,0 +1,12 @@
+[autodrop]
+MEDIA_EXTENSIONS = ['mkv', 'mp4', 'mpeg4', 'avi', 'wmv', 'mov']
+ARCHIVE_EXTENSIONS = ['tar', 'zip', 'rar', 'bzip2']
+SAMPLE_REGEX = [Ss]ample
+STAGING_DIR = /tmp/autodrop/
+RSYNC_PATH = /usr/bin/rsync
+RSYNC_DST_USER = DST_USERNAME
+RSYNC_DST_HOST = 192.0.2.1
+RSYNC_DST_PATH = /home/DST_USERNAME/media
+RSYNC_OPTIONS = -az -e "ssh -p 22 -o StrictHostKeyChecking=no -o ConnectTimeout=20 -i /home/USERNAME/.ssh/keyfile"
+EMAIL_TO = dest_email@exmaple.com
+EMAIL_FROM = from_email@example.net
