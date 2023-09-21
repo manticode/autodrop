@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""" Script to automatically upload file to media server on download completion. """
+""" Script to automatically upload file to media server on download completion. """
 
 __author__ = "manticode"
 __version__ = "0.1.4"
@@ -103,7 +103,7 @@ class FilePack:
                         pass
                     else:
                         self.ready_media.append(Path(self.filename) / file)
-        elif self.singleton:
+        elif self.singleton:  # TODO check if path actually exists
             self.ready_media.append(Path(self.filename))
 
     def _video_type(self):
@@ -289,4 +289,7 @@ if __name__ == '__main__':
         staging_dir.mkdir(parents=True, exist_ok=True)
     media = FilePack(media_group_name,
                      config['autodrop']['MEDIA_EXTENSIONS'])
-    media_journey(media, config, staging_dir)
+    if media.ready_media:
+        media_journey(media, config, staging_dir)
+    else:
+        send_mail_notification(media_group_name, config['autodrop'], status='fail')

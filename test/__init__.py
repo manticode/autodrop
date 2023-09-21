@@ -79,7 +79,6 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         print(f'ready media: {test_object.ready_media}')
         self.assertEqual([pathlib.Path(f'{test_dir}/{x}/{x}.mkv') for x in subdirs], test_object.ready_media)
 
-
     def test_rar_package(self):
         test_dir = '/tmp/downloads/rar media dir'
         os.makedirs(test_dir)
