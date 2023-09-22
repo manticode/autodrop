@@ -1,15 +1,12 @@
 import configparser
 import pathlib
 import unittest
-
-import pyfakefs.pytest_tests.pytest_doctest_test
-
+# import pyfakefs.pytest_tests.pytest_doctest_test
 import autodrop
 import os
 import unittest.mock
 from unittest.mock import Mock, patch
 from pathlib import Path
-
 # from unittest.mock import Mock
 from pyfakefs import fake_filesystem_unittest
 
@@ -67,6 +64,21 @@ class DirectoryTests(fake_filesystem_unittest.TestCase):
         test_object = autodrop.FilePack(test_dir, self.config['autodrop']['MEDIA_EXTENSIONS'])
         self.assertEqual([pathlib.Path(f'{test_dir}/media s01e{x}.mkv') for x in range(0, 10)], test_object.ready_media)
 
+    @unittest.skip
+    def test_multiple_nested_media(self):
+        os.makedirs('/tmp/downloads/media pack')
+        test_dir = '/tmp/downloads/media pack'
+        subdirs = ['aaa', 'bbb', 'ccc']
+        for subdir in subdirs:
+            os.makedirs(test_dir + '/' + subdir)
+            with open(f'{test_dir}/{subdir}/{subdir}.mkv', 'w') as f:
+                f.write('test data')
+            with open(f'{test_dir}/{subdir}/{subdir}.txt', 'w') as g:
+                g.write('test data')
+        test_object = autodrop.FilePack(test_dir, self.config['autodrop']['MEDIA_EXTENSIONS'])
+        print(f'ready media: {test_object.ready_media}')
+        self.assertEqual([pathlib.Path(f'{test_dir}/{x}/{x}.mkv') for x in subdirs], test_object.ready_media)
+
     def test_rar_package(self):
         test_dir = '/tmp/downloads/rar media dir'
         os.makedirs(test_dir)
@@ -81,23 +93,24 @@ class TestMail(unittest.TestCase):
     """ TODO Clean up debug print statements and config object being passed through to function. """
     def setUp(self):
         self.conf = configparser.ConfigParser()
-
         self.conf.add_section('autodrop')
         self.config = self.conf['autodrop']
         self.conf.set('autodrop', 'EMAIL_FROM', 'test@test.com')
         self.conf.set('autodrop', 'EMAIL_TO', 'test-recipient@example.net')
-        #self.config = autodrop.import_config()
+        # self.config = autodrop.import_config()
         print('Done setting up')
 
-    def test_send_mock_mail(self):
-        print(self.conf.get('autodrop', 'EMAIL_FROM'))
-        print(self.conf.get('autodrop', 'EMAIL_TO'))
-        print(self.conf['autodrop'])
+    def test_send_mock_mail_success(self):
         with patch('smtplib.SMTP') as mock_smtp:
             test_filename = Path('/abc/def/ghi/Test Mock Movie').name
-            #autodrop.NOTIFICATION_EMAIL_FROM = 'autodrop-notify@example.com'
-            #autodrop.NOTIFICATION_EMAIL_TO = 'test-recipient@example.net'
-            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'])
+            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'], status='success')
+            print(mock_smtp.mock_calls)
+            self.assertFalse(test_send)
+
+    def test_send_mock_mail_fail(self):
+        with patch('smtplib.SMTP') as mock_smtp:
+            test_filename = Path('/abc/def/ghi/Test Mock Movie').name
+            test_send = autodrop.send_mail_notification(test_filename, self.conf['autodrop'], status='fail')
             print(mock_smtp.mock_calls)
             self.assertFalse(test_send)
 
