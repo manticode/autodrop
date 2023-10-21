@@ -8,6 +8,7 @@ __version__ = "0.1.4"
 import argparse
 import configparser
 import os
+import logging
 import re
 import smtplib
 import subprocess
@@ -21,7 +22,7 @@ from pathlib import Path
 
 def import_config(**kwargs):
     def set_config_vars():
-        print('set config vars')
+        logging.debug('Setting config vars')
         try:
             config_options = config['autodrop']
         except KeyError as e:
@@ -38,19 +39,23 @@ def import_config(**kwargs):
         if kwargs['config_file'] is not None:
             try:
                 if config.read(kwargs['config_file']) is not None:
+                    logging.debug('Using specified config file.')
                     set_config_vars()
                 else:
-                    print('unable to read config')
+                    logging.error('Unable to read config file')
                     sys.exit()
             except TypeError:
+                logging.error('Unable to read config file')
                 sys.exit()
         else:
             try:
                 config.read(Path.home() / '.autodrop.conf')
+                logging.debug('Config file found in home directory.')
                 set_config_vars()
             except configparser.Error as e:
-                print(f'error due to {e}')
+                logging.error(f'Config parsing error due to {e}')
     else:
+        logging.warning('Proceeding without config file.')
         set_config_vars()
     return config
 
@@ -151,44 +156,54 @@ def identify_media(file_group):
 
 def extract_media(media_archive_file, temp_dir):
     """ Extract media from rar. """
+    logging.debug('Handling rar extraction')
     rar_handle = rarfile.RarFile(media_archive_file.media_archive)
     for file in rar_handle.infolist():
-        print(file.filename, file.file_size)
+        logging.debug(f'evaluating file {file.filename} {file.file_size}')
         if 'mkv' in file.filename:
+            logging.info(f'MKV found in archive: {file.filename}')
             print('MKV found: ', file.filename)
             try:
                 rar_handle.extract(file, path=temp_dir.name)
                 if rar_handle.strerror() is None:
+                    logging.debug('Media successfully extracted.')
                     media_archive_file.ready_media.append(Path(temp_dir.name) / file.filename)
                 elif rar_handle.strerror() is not None:
+                    logging.error(f'rar extraction error: {rar_handle.strerror()}')
                     print(f'strerror: {rar_handle.strerror()}')
             except PermissionError:
+                logging.error('unable to extract rar to specified directory')
                 print('unable to extract to specified directory')
         else:
+            logging.error('No MKV found in rar')
             print('no mkv here')
 
 
 def upload_media(file_group, rsync_args):
+    logging.getLogger('autodrop')
     """ To upload file to endpoint using rsync. """
     upload_file_string = ' '.join(['"' + str(file) + '"' for file in file_group])
+    logging.debug(f'Upload file string: {upload_file_string}')
     print(upload_file_string)
     rsync_exec = f'{rsync_args["rsync_path"]} {rsync_args["rsync_options"]} {upload_file_string} ' \
                  f'{rsync_args["rsync_dst_user"]}@{rsync_args["rsync_dst_host"]}:"{rsync_args["rsync_dst_path"]}"'
+    logging.debug(f'rsync command: {rsync_exec}')
     print(rsync_exec)
     try:
         rsync_ran = subprocess.run(rsync_exec, check=True, shell=True)
         if rsync_ran.returncode == 0:
+            logging.debug('rsync successful')
             return True
         elif rsync_ran.returncode == 35 or rsync_ran.returncode == 255:
-            print('Unable to connect')
+            logging.error(f'Unable to connect to remote host')
             return False
         else:
+            logging.error(f'rsync was not able to complete successfully. Return code: {str(rsync_ran.returncode)}')
             print(f'Something else went wrong executing rsync\n Return code: {str(rsync_ran.returncode)}')
             return False
 
     except subprocess.CalledProcessError as e:
-        print("Error uploading...")
-        print('CMD ran was: ', e.cmd)
+        logging.error(f'Error trying to upload. Command executed: {e.cmd}')
         return False
 
 
@@ -196,12 +211,17 @@ def cli_args():
     parser = argparse.ArgumentParser(description='File to prepare and send.')
     parser.add_argument('filename', type=str, help='the filename and path to send')
     parser.add_argument('--config', type=str, help='path to configuration file')
+    parser.add_argument('--logfile', type=str,
+                        help='Log file path. Default is autodrop.log in script path.', default='autodrop.log')
+    parser.add_argument('--loglevel', type=str, help='Log level', default='error')
     parser.add_argument('--dry-run', '-n', action='store_const', const='DRY_RUN', help='dry run - does nothing at the '
                                                                                        'moment')
     return parser.parse_args()
 
 
 def media_journey(file_group, config_opts, stg_dir):
+    logger = logging.getLogger('autodrop')
+    logger.debug('starting journey')
     config_params = config_opts['autodrop']
     rsync_params = {"rsync_path": config_params.get('RSYNC_PATH'),
                     "rsync_options": config_params.get('RSYNC_OPTIONS'),
@@ -213,6 +233,7 @@ def media_journey(file_group, config_opts, stg_dir):
         if upload_media(file_group.ready_media, rsync_params):
             send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
+            logger.error('Media did not upload. Manual cleanup may be required.')
             print('media did not upload. Cleaning up.')
             # TODO add cleanup method
     elif file_group.media_archive:
@@ -221,16 +242,21 @@ def media_journey(file_group, config_opts, stg_dir):
         if upload_media(file_group.ready_media, rsync_params):
             send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
+            logger.error('Media did not upload. Manual cleanup may be required.')
             print('media did not upload. Cleaning up.')
             sys.exit()
         pass
     elif file_group.ready_media and not file_group.has_sample and not file_group.singleton:
         if upload_media(file_group.ready_media, rsync_params):
+            logger.debug('Media upload complete.')
             print('media uploaded')
             send_mail_notification(Path(file_group.filename).name, config_params, status='success')
         else:
+            logger.error('Media did not upload. Manual cleanup may be required.')
             print('media not uploaded.')
+    logger.debug('Media upload attempt complete.')
     print('upload attempt complete')
+
 
 
 def is_movie_or_tv(media_pack):
@@ -280,9 +306,22 @@ def cleanup(temp_dir):
     pass
 
 
+def set_logging(log_level, log_file):
+    logger = logging.getLogger('autodrop')
+    log_handle = logging.FileHandler(log_file)
+    log_format = logging.Formatter('[%(asctime)s] [%(process)d] [%(levelname)s] %(message)s')
+    log_handle.setFormatter(log_format)
+    logger.propagate = False
+    logger.addHandler(log_handle)
+    logger.setLevel(log_level)
+    logger.debug('logging values set')
+    return logger
+
+
 if __name__ == '__main__':
     args = cli_args()
     config = import_config(config_file=args.config)
+    set_logging(eval(f'logging.{str.upper(args.loglevel)}'), args.logfile)
     media_group_name = args.filename
     staging_dir = Path(config['autodrop']['STAGING_DIR'])
     if not staging_dir.exists():
